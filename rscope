@@ -1,0 +1,60 @@
+#!/bin/bash
+
+for cmd in fzf; do
+  if ! command -v $cmd &> /dev/null; then
+    echo "$cmd could not be found. Please install it."
+    exit 1
+  fi
+done
+
+
+rscope() {
+  local dir="${1:-.}"
+  local selection
+
+  while true; do
+    selection=$(ls -1ap "$dir" | fzf --reverse --cycle --header="Current directory: $dir" --preview='
+      preview_image() {
+        local file="$1"
+        local width=80 
+      
+        if command -v kitty &> /dev/null && [ "$TERM" = "xterm-kitty" ]; then
+          kitty +kitten icat --silent --stdin no --transfer-mode file --place "${width}x${width}@0x0" "$file"
+        elif command -v ueberzug &> /dev/null; then
+          ueberzug layer --parser bash 0< <(
+          declare -A -p cmd=([action]="add" [identifier]="preview" [x]="0" [y]="0" [width]="$width" [height]="$width" [path]="$file")
+          read
+          declare -A -p cmd=([action]="remove" [identifier]="preview")
+        )
+        elif command -v chafa &> /dev/null; then
+          chafa -s "${width}x${width}" "$file"
+        else
+          echo "No suitable image preview tool found."
+          echo "Please install kitty, ueberzug, or chafa for image previews."
+          file "$file"
+        fi
+      }
+       file={};
+       if [ -d "$file" ]; then
+         ls -la "$file"
+       elif [[ "$file" =~ \.(jpg|jpeg|png|gif|bmp)$ ]]; then
+         preview_image "$file"
+       else
+         file "$file"
+         echo
+         head -n 100 "$file"
+       fi       
+    ')
+
+      [[ -z "$selection" ]] && return
+
+      if [[ -d "$dir/$selection" ]]; then
+        dir="$dir/$selection"
+      elif [[ -f "$dir/$selection" ]]; then
+        xdg-open "$dir/$selection" 2>/dev/null || open "$dir/$selection" 2>/dev/null || echo "Unable to open file"
+        return
+      fi
+    done
+  }
+
+  rscope;
