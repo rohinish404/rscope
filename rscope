@@ -34,7 +34,7 @@ rscope() {
           file "$file"
         fi
       }
-       file={};
+       file='"$dir"'/{}
        if [ -d "$file" ]; then
          ls -la "$file"
        elif [[ "$file" =~ \.(jpg|jpeg|png|gif|bmp)$ ]]; then
@@ -49,7 +49,7 @@ rscope() {
       [[ -z "$selection" ]] && return
 
       if [[ -d "$dir/$selection" ]]; then
-        dir="$dir/$selection"
+         dir="$(realpath "$dir/$selection")"  
       elif [[ -f "$dir/$selection" ]]; then
         xdg-open "$dir/$selection" 2>/dev/null || open "$dir/$selection" 2>/dev/null || echo "Unable to open file"
         return
