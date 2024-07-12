@@ -34,6 +34,10 @@ rscope() {
         local file="$1"
         preview_image < <(pdftoppm -f 1 -l 1 -png "$file")
      }
+     video_preview() {
+        local file="$1"
+        ffmpeg -i "$file" -vframes 1 -f image2pipe -vcodec png - 2>/dev/null| preview_image
+     }
        file='"$dir"'/{}
        if [ -d "$file" ]; then
          ls -la "$file"
@@ -41,7 +45,8 @@ rscope() {
          pdf_preview "$file"
        elif [[ "$file" =~ \.(jpg|jpeg|png|gif|bmp)$ ]]; then
          cat "$file" | preview_image
-       
+       elif [[ "$file" =~ \.(mov|mkv|mp4)$ ]]; then
+         video_preview "$file"
        else
          file "$file"
          echo
