@@ -7,7 +7,6 @@ for cmd in fzf; do
   fi
 done
 
-
 rscope() {
   local dir="${1:-.}"
   local selection
@@ -19,26 +18,30 @@ rscope() {
         local width=80 
       
         if command -v kitty &> /dev/null && [ "$TERM" = "xterm-kitty" ]; then
-          kitty +kitten icat --silent --stdin no --transfer-mode file --place "${width}x${width}@0x0" "$file"
-        elif command -v ueberzug &> /dev/null; then
-          ueberzug layer --parser bash 0< <(
-          declare -A -p cmd=([action]="add" [identifier]="preview" [x]="0" [y]="0" [width]="$width" [height]="$width" [path]="$file")
-          read
-          declare -A -p cmd=([action]="remove" [identifier]="preview")
-        )
+          if [ "$from_stdin" = "true" ]; then
+            kitty +kitten icat --silent --stdin no --transfer-mode file --place "${width}x${width}@0x0" "$file"
+          fi
         elif command -v chafa &> /dev/null; then
-          chafa -s "${width}x${width}" "$file"
+          chafa -s "${width}x${width}" 
         else
           echo "No suitable image preview tool found."
           echo "Please install kitty, ueberzug, or chafa for image previews."
-          file "$file"
+          cat > /dev/null
+
         fi
       }
+      pdf_preview() {
+        local file="$1"
+        preview_image < <(pdftoppm -f 1 -l 1 -png "$file")
+     }
        file='"$dir"'/{}
        if [ -d "$file" ]; then
          ls -la "$file"
+       elif [[ "$file" =~ \.(pdf)$ ]]; then
+         pdf_preview "$file"
        elif [[ "$file" =~ \.(jpg|jpeg|png|gif|bmp)$ ]]; then
-         preview_image "$file"
+         cat "$file" | preview_image
+       
        else
          file "$file"
          echo
