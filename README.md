@@ -1,6 +1,6 @@
 # rscope
 
-A tool used to fast-preview videos, pdfs, images, and txt/code files in iterm2.
+A tool to fast-preview videos, pdfs, images, and txt/code files in iterm2.
 
 ## Technologies used - 
 - bash
