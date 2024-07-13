@@ -7,62 +7,93 @@ for cmd in fzf; do
   fi
 done
 
+CACHE_DIR="$HOME/.cache/rscope_previews"
+if ! mkdir -p "$CACHE_DIR" 2>/dev/null || ! [ -w "$CACHE_DIR" ]; then
+  echo "Warning: Unable to create or write to cache directory. Using temporary directory." >&2
+  CACHE_DIR=$(mktemp -d)
+fi
+
+
+
 rscope() {
   local dir="${1:-.}"
   local selection
 
   while true; do
     selection=$(ls -1ap "$dir" | fzf --reverse --cycle --header="Current directory: $dir" --preview='
-      preview_image() {
-        local file="$1"
-        local width=80 
-      
-        if command -v kitty &> /dev/null && [ "$TERM" = "xterm-kitty" ]; then
-          if [ "$from_stdin" = "true" ]; then
-            kitty +kitten icat --silent --stdin no --transfer-mode file --place "${width}x${width}@0x0" "$file"
-          fi
-        elif command -v chafa &> /dev/null; then
-          chafa -s "${width}x${width}" 
-        else
-          echo "No suitable image preview tool found."
-          echo "Please install kitty, ueberzug, or chafa for image previews."
-          cat > /dev/null
+    generate_cache_filename() {
+      echo "$1" | md5sum | cut -d " " -f1
+    }
+    generate_preview() {
+      local file="$1"
+      if ! [ -w "$CACHE_DIR" ]; then
+        cache_dir=$(mktemp -d)
+      fi
 
+      local cache_file="${cache_dir}/$(generate_cache_filename "$file")"
+
+      if [[ ! -f "$cache_file" ]]; then
+        if [[ "$file" =~ \.(pdf)$ ]]; then
+          pdftoppm -f 1 -l 1 -png "$file" > "$cache_file"
+        elif [[ "$file" =~ \.(jpg|jpeg|png|gif|bmp)$ ]]; then
+          cp "$file" "$cache_file"
         fi
-      }
-      pdf_preview() {
-        local file="$1"
-        preview_image < <(pdftoppm -f 1 -l 1 -png "$file")
-     }
-     video_preview() {
-        local file="$1"
-        ffmpeg -i "$file" -vframes 1 -f image2pipe -vcodec png - 2>/dev/null| preview_image
-     }
-       file='"$dir"'/{}
-       if [ -d "$file" ]; then
-         ls -la "$file"
-       elif [[ "$file" =~ \.(pdf)$ ]]; then
-         pdf_preview "$file"
-       elif [[ "$file" =~ \.(jpg|jpeg|png|gif|bmp)$ ]]; then
-         cat "$file" | preview_image
-       elif [[ "$file" =~ \.(mov|mkv|mp4)$ ]]; then
-         video_preview "$file"
-       else
-         file "$file"
-         echo
-         head -n 100 "$file"
-       fi       
+      fi
+      if [[ -f "$cache_file" ]]; then
+        preview_image < "$cache_file"
+      else
+        echo "Unable to generate preview for $file"
+      fi
+    }
+    preview_image() {
+      local file="$1"
+      local width=80 
+
+      if command -v kitty &> /dev/null && [ "$TERM" = "xterm-kitty" ]; then
+        if [ "$from_stdin" = "true" ]; then
+          kitty +kitten icat --silent --stdin no --transfer-mode file --place "${width}x${width}@0x0" "$file"
+        fi
+      elif command -v chafa &> /dev/null; then
+        chafa -s "${width}x${width}" 
+      else
+        echo "No suitable image preview tool found."
+        echo "Please install kitty, ueberzug, or chafa for image previews."
+        cat > /dev/null
+
+      fi
+    }
+    pdf_preview() {
+      local file="$1"
+      preview_image < <(pdftoppm -f 1 -l 1 -png "$file")
+    }
+    video_preview() {
+      local file="$1"
+      ffmpeg -i "$file" -vframes 1 -f image2pipe -vcodec png - 2>/dev/null| preview_image
+    }
+    file='"$dir"'/{}
+    sleep 0.1
+    if [ -d "$file" ]; then
+      ls -la "$file"
+    elif [[ "$file" =~ \.(pdf|jpg|jpeg|png|gif|bmp)$ ]]; then
+      generate_preview "$file"
+    elif [[ "$file" =~ \.(mov|mkv|mp4)$ ]]; then
+      video_preview "$file"
+    else
+      file "$file"
+      echo
+      head -n 100 "$file"
+    fi       
     ')
 
-      [[ -z "$selection" ]] && return
+    [[ -z "$selection" ]] && return
 
-      if [[ -d "$dir/$selection" ]]; then
-         dir="$(realpath "$dir/$selection")"  
-      elif [[ -f "$dir/$selection" ]]; then
-        xdg-open "$dir/$selection" 2>/dev/null || open "$dir/$selection" 2>/dev/null || echo "Unable to open file"
-        return
-      fi
-    done
-  }
+    if [[ -d "$dir/$selection" ]]; then
+      dir="$(realpath "$dir/$selection")"  
+    elif [[ -f "$dir/$selection" ]]; then
+      xdg-open "$dir/$selection" 2>/dev/null || open "$dir/$selection" 2>/dev/null || echo "Unable to open file"
+      return
+    fi
+  done
+}
 
-  rscope;
+rscope;
