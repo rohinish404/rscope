@@ -20,17 +20,17 @@ rscope() {
   local selection
 
   while true; do
-    selection=$(ls -1ap "$dir" | fzf --reverse --cycle --header="Current directory: $dir" --preview='
+    selection=$(ls -1ap "$dir" | CACHE_DIR="$CACHE_DIR" fzf --reverse --cycle --header="Current directory: $dir" --preview='
     generate_cache_filename() {
       echo "$1" | md5sum | cut -d " " -f1
     }
     generate_preview() {
       local file="$1"
       if ! [ -w "$CACHE_DIR" ]; then
-        cache_dir=$(mktemp -d)
+        CACHE_DIR=$(mktemp -d)
       fi
 
-      local cache_file="${cache_dir}/$(generate_cache_filename "$file")"
+      local cache_file="${CACHE_DIR}/$(generate_cache_filename "$file")"
 
       if [[ ! -f "$cache_file" ]]; then
         if [[ "$file" =~ \.(pdf)$ ]]; then
@@ -49,15 +49,11 @@ rscope() {
       local file="$1"
       local width=80 
 
-      if command -v kitty &> /dev/null && [ "$TERM" = "xterm-kitty" ]; then
-        if [ "$from_stdin" = "true" ]; then
-          kitty +kitten icat --silent --stdin no --transfer-mode file --place "${width}x${width}@0x0" "$file"
-        fi
-      elif command -v chafa &> /dev/null; then
+      if command -v chafa &> /dev/null; then
         chafa -s "${width}x${width}" 
       else
         echo "No suitable image preview tool found."
-        echo "Please install kitty, ueberzug, or chafa for image previews."
+        echo "Please install chafa for image previews."
         cat > /dev/null
 
       fi
